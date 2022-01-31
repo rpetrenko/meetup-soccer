@@ -14,6 +14,7 @@ import time
 import sys
 import json
 from selenium import webdriver
+from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -72,7 +73,10 @@ if __name__ == "__main__":
     
     curdir = os.getcwd()
     driver_path = os.path.join(curdir, "drivers/geckodriver")
-    driver = webdriver.Firefox(executable_path=driver_path)
+    options = Options()
+    options.headless = True
+    driver = webdriver.Firefox(options=options, executable_path=driver_path)
+
     driver.implicitly_wait(10)
 
 
