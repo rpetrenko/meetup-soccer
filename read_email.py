@@ -78,6 +78,7 @@ def main():
     # check if email was already used
     if same_content(mail_header, outfile):
         print("This email was already used")
+        exit(1)
     else:
         with open(outfile, 'w') as fh:
             fh.write(mail_header)
