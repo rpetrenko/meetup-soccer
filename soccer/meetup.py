@@ -55,14 +55,7 @@ def rsvp_now(driver, mail_html_file):
     print("RSVP'ed")
 
 
-if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print(f"Usage: {sys.argv[0]} <meetup_creds_file> <local_html_file>")
-        exit(1)
-          
-    meetup_creds = sys.argv[1]
-    local_html = sys.argv[2]
-
+def meetup_auto_rsvp(meetup_creds, local_html, headless=True, wait=10):
     with open(meetup_creds, 'r') as fh:
         data = json.load(fh)
         username = data['username']
@@ -74,15 +67,28 @@ if __name__ == "__main__":
     curdir = os.getcwd()
     driver_path = os.path.join(curdir, "drivers/geckodriver")
     options = Options()
-    options.headless = True
+    options.headless = headless
     driver = webdriver.Firefox(options=options, executable_path=driver_path)
 
-    driver.implicitly_wait(10)
-
+    driver.implicitly_wait(wait)
 
     try:
         meetup_login(driver, username, password)
         rsvp_now(driver, local_html)
+    except Exception as e:
+        print(e)
+        return e
     finally:
         time.sleep(10)
         driver.quit()
+    return None
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print(f"Usage: {sys.argv[0]} <meetup_creds_file> <local_html_file>")
+        exit(1)
+          
+    meetup_creds = sys.argv[1]
+    local_html = sys.argv[2]
+    meetup_auto_rsvp(meetup_creds, local_html, headless=False)

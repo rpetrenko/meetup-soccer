@@ -1,8 +1,6 @@
 import imaplib
-import base64
 from operator import imatmul
 import os
-import email
 import json
 import sys
 import quopri
@@ -36,26 +34,12 @@ def same_content(content, filename):
             return False
     return True
 
-def main():
-    if len(sys.argv) < 3:
-        print(f"Usage: {sys.argv[0]} <email_creds_file> <outdir>")
-        exit(1)
-    
-    email_creds = os.path.expanduser(sys.argv[1])
-    outdir = os.path.expanduser(sys.argv[2])
 
-    with open(email_creds, 'r') as fh:
-        data = json.load(fh)
-        username = data['username']
-        password = data['password']
-        host = data['host']
-        port = data['port']
-        label = data['label']
+def download_email(email_client, mail_id, outdir):
+    mail_id_str = mail_id.decode('utf-8')
 
-    mail = EmailClient(username, password, label, host, port)
-    ids = mail.get_ids()
-    # print(ids)
-    mail_content = mail.get_email(ids[0])
+
+    mail_content = email_client.get_email(mail_id)
     mail_content = mail_content.decode('utf-8', errors='ignore')
     mail_content = mail_content.splitlines()
 
@@ -70,23 +54,55 @@ def main():
     for line in mail_header:
         if "Subject:" in line or "Date:" in line:
             print(line)
+        if "Message-ID:" in line:
+            message_id = line.split()[-1][1:-1]
+    print(message_id)
+    
+    mail_header_fname = os.path.join(outdir, f"{message_id}.header")
+    mail_html_fname = os.path.join(outdir, f"{message_id}.html")
 
     mail_header = "\n".join(mail_header)
     html_content = "\n".join(mail_content)
     
-    outfile = os.path.join(outdir, "mail_header.txt")
     # check if email was already used
-    if same_content(mail_header, outfile):
-        print("This email was already used")
-        exit(1)
+    if same_content(mail_header, mail_header_fname):
+        print("This email was already used\n")
+        return None
     else:
-        with open(outfile, 'w') as fh:
+        with open(mail_header_fname, 'w') as fh:
             fh.write(mail_header)
 
-        outfile = os.path.join(outdir, "mail_html.html")
-        with open(outfile, 'w') as fh:
+        with open(mail_html_fname, 'w') as fh:
             fh.write(html_content)
+        return mail_header_fname, mail_html_fname
+
+
+def check_email(email_creds, outdir):
+    email_creds = os.path.expanduser(email_creds)
+    outdir = os.path.expanduser(outdir)
+
+    with open(email_creds, 'r') as fh:
+        data = json.load(fh)
+        username = data['username']
+        password = data['password']
+        host = data['host']
+        port = data['port']
+        label = data['label']
+
+    email_client = EmailClient(username, password, label, host, port)
+    new_emails = []
+    for mail_id in email_client.get_ids():
+        fname = download_email(email_client, mail_id, outdir)
+        if fname is not None:
+            new_emails.append(fname)
+    return new_emails
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) < 3:
+        print(f"Usage: {sys.argv[0]} <email_creds_file> <outdir>")
+        exit(1)
+    
+    email_creds = sys.argv[1]
+    outdir = sys.argv[2]
+    check_email(email_creds, outdir)
