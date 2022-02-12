@@ -7,11 +7,19 @@
 
         
         {
-            "name": "meetup_rsvp",
+            "name": "meetup_rsvp_soccer",
             "type": "python",
             "request": "launch",
             "program": "meetup_rsvp.py",
             "args": ["~/.meetup_creds", "https://www.meetup.com/Pleasanton-Soccer-Pickup-Group/events/"],
+            "console": "integratedTerminal"
+        },    
+        {
+            "name": "meetup_rsvp_test",
+            "type": "python",
+            "request": "launch",
+            "program": "meetup_rsvp.py",
+            "args": ["~/.meetup_creds", "https://www.meetup.com/tracy-russian-speaking-friends-meetup-group/events/"],
             "console": "integratedTerminal"
         },        
         {

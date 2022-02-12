@@ -19,6 +19,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException
 
 
 class MeetupRSVP(object):
@@ -34,8 +35,7 @@ class MeetupRSVP(object):
     def find_element_by_css_selector(self, value):
         try:
             return self.driver.find_element(by=By.CSS_SELECTOR, value=value)
-        except Exception as e:
-            print(e)
+        except NoSuchElementException as e:
             return None
 
         
@@ -84,32 +84,39 @@ class MeetupRSVP(object):
             if days_ahead > 7:
                 print("...more than 7 days ahead")
                 return False
+            
+            if attendees and int(attendees[i].text.split()[0]) <= 2:
+                print("...not opened yet")
+                continue
+
+            response_text = responses[i].text
+            if response_text == "Going":
+                print("...already going")
+            elif response_text == "Waitlist":
+                print("...oh well, waitlisted")
             else:
-                if int(attendees[i].text.split()[0]) <= 2:
-                    print("...not opened yet")
-                    continue
-                response_text = responses[i].text
-                if response_text == "Going":
-                    print("...already going")
-                elif response_text == "Waitlist":
-                    print("...oh well, waitlisted")
-                else:
-                    print(f"RSVP to: {meetup_date_str}")
-                    self.rsvp_to_event(links[i])
-                    return True
+                print(f"RSVP to: {meetup_date_str}")
+                return self.rsvp_to_event(links[i])
         return False
 
     def rsvp_to_event(self, link):
         css_attend = "button[data-e2e=event-footer--attend-btn]"
         link_text = link.text
-        link.click()
-        time.sleep(30)
-        el = self.find_element_by_css_selector(css_attend)
-        if el:
-            print(f"clicking attend button for [{link_text}]")
-            el.click()
-            print("attending")
-            time.sleep(30)
+
+        try:
+            link.click()
+            time.sleep(15)
+            el = self.find_element_by_css_selector(css_attend)
+            if el:
+                print(f"clicking attend button for [{link_text}]")
+                el.click()
+                print("attending")
+                time.sleep(15)
+                return True
+        except Exception as e:
+            print(e)
+        return True
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
@@ -130,8 +137,10 @@ if __name__ == "__main__":
 
     try:
         meetup.login(username, password)
-        while meetup.rsvp_to_events(events_url):
-            pass
+        while True:
+            res = meetup.rsvp_to_events(events_url)
+            if not res:
+                break
     finally:
         time.sleep(10)
         meetup.driver.quit()
