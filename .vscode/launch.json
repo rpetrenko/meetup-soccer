@@ -4,13 +4,14 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         
         {
-            "name": "email",
+            "name": "meetup_rsvp",
             "type": "python",
             "request": "launch",
-            "program": "read_email.py",
-            "args": ["~/.gmail_creds", "~/meetup-out/"],
+            "program": "meetup_rsvp.py",
+            "args": ["~/.meetup_creds", "https://www.meetup.com/Pleasanton-Soccer-Pickup-Group/events/"],
             "console": "integratedTerminal"
         },        
         {
