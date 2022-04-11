@@ -100,7 +100,8 @@ class MeetupRSVP(object):
         return False
 
     def rsvp_to_event(self, link):
-        css_attend = "button[data-e2e=event-footer--attend-btn]"
+        css_attend = "button[data-testid=attend-irl-btn]"
+        css_submit = "button[data-event-label=event-question-modal-confirm]"
         link_text = link.text
 
         try:
@@ -108,11 +109,16 @@ class MeetupRSVP(object):
             time.sleep(15)
             el = self.find_element_by_css_selector(css_attend)
             if el:
-                print(f"clicking attend button for [{link_text}]")
+                print(f"...clicking attend button for [{link_text}]")
                 el.click()
-                print("attending")
-                time.sleep(15)
+                time.sleep(10)
+                print(f"...clicking submit button")
+                el = self.find_element_by_css_selector(css_submit)
+                el.click()
+                time.sleep(10)
                 return True
+            else:
+                print("ERROR: attend button not found")
         except Exception as e:
             print(e)
         return True
@@ -137,10 +143,13 @@ if __name__ == "__main__":
 
     try:
         meetup.login(username, password)
-        while True:
+        count = 3
+        for i in range(count):
             res = meetup.rsvp_to_events(events_url)
             if not res:
                 break
+            time.sleep(10)
+
     finally:
         time.sleep(10)
         meetup.driver.quit()
