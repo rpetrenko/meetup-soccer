@@ -17,6 +17,7 @@ import json
 from datetime import datetime, timedelta
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support import expected_conditions as EC
@@ -31,6 +32,7 @@ class MeetupRSVP(object):
         options.headless = headless
         self.driver = webdriver.Firefox(options=options, executable_path=driver_path)
         self.driver.implicitly_wait(10)
+        self.skip_events = set()
 
         
     def find_element_by_css_selector(self, value):
@@ -62,7 +64,24 @@ class MeetupRSVP(object):
         )
         print("logged in")
 
+    def is_in_not_going(self, href):
+        css_avatar_person = ".avatar--person"
+        css_not_going = ".response-filter-no"
+        self.driver.get(href)
+        time.sleep(10)
+        
+        # click not going
+        self.find_element_by_css_selector(css_not_going).click()
+        time.sleep(2)
+
+        els = self.find_elements_by_css_selector(css_avatar_person)
+        # if we found ourselves in Not going list, there will be two same avatars
+        # one from the list at one from top right corner after login
+        unique_names = set(el.text for el in els)
+        return len(els) != len(unique_names)
+
     def rsvp_to_events(self, url_events):
+        done = False
         css_header = ".eventCardHead"
         css_attendees = ".avatarRow--attendingCount"
         css_link = ".eventCard--link"
@@ -76,6 +95,8 @@ class MeetupRSVP(object):
 
         for i, header in enumerate(headers):
             meetup_date_str = header.text.splitlines()[0]
+            if meetup_date_str in self.skip_events:
+                continue
             print(f"====Parsing {meetup_date_str}")
             fmt = '%a, %b %d, %Y, %I:%M %p %Z'
             event_date = datetime.strptime(meetup_date_str, fmt)
@@ -84,7 +105,7 @@ class MeetupRSVP(object):
             days_ahead = delta.days
             if days_ahead > 7:
                 print("...more than 7 days ahead")
-                return False
+                continue
             
             if attendees and int(attendees[i].text.split()[0]) <= 2:
                 print("...not opened yet")
@@ -96,42 +117,34 @@ class MeetupRSVP(object):
             elif response_text == "Waitlist":
                 print("...oh well, waitlisted")
             else:
-                print(f"RSVP to: {meetup_date_str}")
-                return self.rsvp_to_event(links[i])
-        return False
+                href = links[i].get_attribute("href")
+                print("...checking if in Not going list")
+                not_going = self.is_in_not_going(f"{href}/attendees/")
+                if not_going:
+                    print(f"...found yourself in Not going list")
+                    self.skip_events.add(meetup_date_str)
+                else:
+                    print(f"RSVP to: {meetup_date_str}")
+                    print(f"...{href}")
+                    res = self.rsvp_to_event(links[i], href)
+                    if res:
+                        self.skip_events.add(meetup_date_str)
+                return False
+        done = True
+        return done
 
-    def rsvp_to_event(self, link):
+    def rsvp_to_event(self, link, href):
         """
         
-        return retry = True|False
+        return True on succeess
         """
         css_attend = "button[data-testid=attend-irl-btn]"
         css_submit = "button[data-event-label=event-question-modal-confirm]"
-        css_see_all = "a[data-event-label=event-all-attendees]"
-        css_avatar_person = ".avatar--person"
-        css_not_going = ".response-filter-no"
         link_text = link.text
 
         try:
-            link.click()
+            self.driver.get(href)
             time.sleep(10)
-            
-            # don't attend if found in Not going
-            self.find_element_by_css_selector(css_see_all).click()
-            time.sleep(10)
-
-            # click not going
-            self.find_element_by_css_selector(css_not_going).click()
-            time.sleep(2)
-
-            els = self.find_elements_by_css_selector(css_avatar_person)
-            # if we found ourselves in Not going list, there will be two same avatars
-            # one from the list at one from top right corner after login
-            unique_names = set(el.text for el in els)
-            if len(els) != len(unique_names):
-                print(f"...found yourself in Not going list")
-                return False
-
             el = self.find_element_by_css_selector(css_attend)
             if el:
                 print(f"...clicking attend button for [{link_text}]")
@@ -141,12 +154,12 @@ class MeetupRSVP(object):
                 el = self.find_element_by_css_selector(css_submit)
                 el.click()
                 time.sleep(10)
-                return False
+                return True
             else:
                 print("ERROR: attend button not found")
         except Exception as e:
             print(e)
-        return True
+        return False
 
 
 if __name__ == "__main__":
@@ -155,7 +168,7 @@ if __name__ == "__main__":
         exit(1)   
     meetup_creds = os.path.expanduser(sys.argv[1])
     events_url = sys.argv[2]
-    headless = True
+    headless = not True
 
     with open(meetup_creds, 'r') as fh:
         data = json.load(fh)
@@ -168,13 +181,11 @@ if __name__ == "__main__":
 
     try:
         meetup.login(username, password)
-        count = 3
+        count = 20
         for i in range(count):
-            retry = meetup.rsvp_to_events(events_url)
-            if not retry:
+            if meetup.rsvp_to_events(events_url):
                 break
             time.sleep(10)
 
     finally:
-        time.sleep(10)
         meetup.driver.quit()
