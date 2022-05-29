@@ -9,6 +9,7 @@ download gecko driver for firefox:
 https://github.com/mozilla/geckodriver/releases
 """
 
+from enum import unique
 import os
 import time
 import sys
@@ -100,13 +101,37 @@ class MeetupRSVP(object):
         return False
 
     def rsvp_to_event(self, link):
+        """
+        
+        return retry = True|False
+        """
         css_attend = "button[data-testid=attend-irl-btn]"
         css_submit = "button[data-event-label=event-question-modal-confirm]"
+        css_see_all = "a[data-event-label=event-all-attendees]"
+        css_avatar_person = ".avatar--person"
+        css_not_going = ".response-filter-no"
         link_text = link.text
 
         try:
             link.click()
-            time.sleep(15)
+            time.sleep(10)
+            
+            # don't attend if found in Not going
+            self.find_element_by_css_selector(css_see_all).click()
+            time.sleep(10)
+
+            # click not going
+            self.find_element_by_css_selector(css_not_going).click()
+            time.sleep(2)
+
+            els = self.find_elements_by_css_selector(css_avatar_person)
+            # if we found ourselves in Not going list, there will be two same avatars
+            # one from the list at one from top right corner after login
+            unique_names = set(el.text for el in els)
+            if len(els) != len(unique_names):
+                print(f"...found yourself in Not going list")
+                return False
+
             el = self.find_element_by_css_selector(css_attend)
             if el:
                 print(f"...clicking attend button for [{link_text}]")
@@ -116,7 +141,7 @@ class MeetupRSVP(object):
                 el = self.find_element_by_css_selector(css_submit)
                 el.click()
                 time.sleep(10)
-                return True
+                return False
             else:
                 print("ERROR: attend button not found")
         except Exception as e:
@@ -145,8 +170,8 @@ if __name__ == "__main__":
         meetup.login(username, password)
         count = 3
         for i in range(count):
-            res = meetup.rsvp_to_events(events_url)
-            if not res:
+            retry = meetup.rsvp_to_events(events_url)
+            if not retry:
                 break
             time.sleep(10)
 
