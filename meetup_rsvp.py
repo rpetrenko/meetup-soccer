@@ -168,7 +168,7 @@ if __name__ == "__main__":
         exit(1)   
     meetup_creds = os.path.expanduser(sys.argv[1])
     events_url = sys.argv[2]
-    headless = not True
+    headless = True
 
     with open(meetup_creds, 'r') as fh:
         data = json.load(fh)
