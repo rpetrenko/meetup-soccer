@@ -97,7 +97,10 @@ class MeetupRSVP(object):
             meetup_date_str = header.text.splitlines()[0]
             if meetup_date_str in self.skip_events:
                 continue
-            print(f"====Parsing {meetup_date_str}")
+            href = links[i].get_attribute("href")
+            if not href.startswith(url_events.lower()):
+                continue
+            print(f"====Parsing {meetup_date_str}===={href}")
             fmt = '%a, %b %d, %Y, %I:%M %p %Z'
             event_date = datetime.strptime(meetup_date_str, fmt)
             today = datetime.today()
@@ -117,7 +120,6 @@ class MeetupRSVP(object):
             elif response_text == "Waitlist":
                 print("...oh well, waitlisted")
             else:
-                href = links[i].get_attribute("href")
                 print("...checking if in Not going list")
                 not_going = self.is_in_not_going(f"{href}/attendees/")
                 if not_going:
@@ -168,7 +170,7 @@ if __name__ == "__main__":
         exit(1)   
     meetup_creds = os.path.expanduser(sys.argv[1])
     events_url = sys.argv[2]
-    headless = True
+    headless = not True
 
     with open(meetup_creds, 'r') as fh:
         data = json.load(fh)
